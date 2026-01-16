@@ -25,9 +25,9 @@ let bullets;
 let currentWord;
 let wordText;
 let scoreText;
-let livesText; // 生命值文本
-let gameOverText; // 游戏结束文本
-let restartButton; // 重新开始按钮
+let livesText;
+let gameOverText;
+let restartButton;
 
 let score = 0;
 let lives = 3;
@@ -47,10 +47,10 @@ function create () {
     // 1. 创建动态星空背景
     let stars = this.add.graphics();
     stars.fillStyle(0xffffff, 1);
-    for(let i=0; i<100; i++) {
+    for(let i=0; i<150; i++) {
         let x = Phaser.Math.Between(0, 800);
         let y = Phaser.Math.Between(0, 600);
-        let r = Phaser.Math.FloatBetween(0.5, 2);
+        let r = Phaser.Math.FloatBetween(0.5, 2.5);
         stars.fillCircle(x, y, r);
     }
 
@@ -95,19 +95,26 @@ function create () {
 
 function fetchWords(scene) {
     fetch('/api/words')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log("Words received:", data); // 调试日志
             if (data && data.length > 0) {
                 words = data;
                 displayNextWord(scene);
             } else {
-                words = [{en: 'Error', cn: '无数据'}, {en: 'Connect', cn: '连接'}];
+                words = [{en: 'No Data', cn: '无数据'}];
                 displayNextWord(scene);
             }
         })
         .catch(err => {
             console.error("API Error:", err);
-            words = [{en: 'Error', cn: '网络错误'}];
+            // 这里也可以用一些硬编码的词作为最后的防线
+            words = [{en: 'Error', cn: '网络错误'}, {en: 'Reload', cn: '刷新页面'}];
             displayNextWord(scene);
         });
 }
@@ -136,6 +143,7 @@ function displayNextWord(scene) {
         wordText.destroy();
     }
 
+    // 在底部显示英文单词
     wordText = scene.add.text(400, 550, currentWord.en, { 
         font: 'bold 40px Arial', 
         fill: '#ffffff',
@@ -157,12 +165,20 @@ function createTargets(scene) {
     const minY = 50;
     const maxY = 350;
 
+    // 1. 添加正确答案
     let correctTarget = createTarget(scene, Phaser.Math.Between(minX, maxX), Phaser.Math.Between(minY, maxY), currentWord.cn, true);
     targets.add(correctTarget);
 
+    // 2. 添加干扰项 (增加到 7 个，总共 8 个)
     let incorrectWords = words.filter(word => word.en !== currentWord.en);
-    for (let i = 0; i < 4; i++) { 
-        if (incorrectWords.length === 0) break; 
+    // 如果单词总数不够，就重复使用干扰项
+    let targetCount = 7;
+    
+    for (let i = 0; i < targetCount; i++) { 
+        if (incorrectWords.length === 0) {
+            // 如果干扰词用完了，重新填充（除了正确答案）
+            incorrectWords = words.filter(word => word.en !== currentWord.en);
+        }
         
         let randomIndex = Phaser.Math.Between(0, incorrectWords.length - 1);
         let randomWord = incorrectWords[randomIndex];
@@ -176,16 +192,21 @@ function createTargets(scene) {
 function createTarget(scene, x, y, text, isCorrect) {
     let targetContainer = scene.add.container(x, y);
     
+    // 确保字体支持中文，且颜色对比度高
     let targetText = scene.add.text(0, 0, text, { 
-        font: '24px "Microsoft YaHei", sans-serif', 
-        fill: '#ffffff' 
+        font: 'bold 20px "Microsoft YaHei", Arial, sans-serif', 
+        fill: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2
     }).setOrigin(0.5);
     
+    // 气泡大小
     let radius = Math.max(targetText.width, targetText.height) / 2 + 15;
     
     let visualBg = scene.add.graphics();
-    let color = Phaser.Utils.Array.GetRandom([0xff5555, 0x55ff55, 0x5555ff, 0xffff55, 0xff55ff]);
-    visualBg.fillStyle(color, 0.6);
+    // 随机颜色
+    let color = Phaser.Utils.Array.GetRandom([0xff5555, 0x55ff55, 0x5555ff, 0xffff55, 0xff55ff, 0xffaa00, 0x00aaff]);
+    visualBg.fillStyle(color, 0.8); // 增加不透明度
     visualBg.fillCircle(0, 0, radius);
     
     targetContainer.add([visualBg, targetText]);
@@ -194,7 +215,8 @@ function createTarget(scene, x, y, text, isCorrect) {
     scene.physics.world.enable(targetContainer);
     
     targetContainer.setData('isCorrect', isCorrect);
-    targetContainer.body.setVelocity(Phaser.Math.Between(-80, 80), Phaser.Math.Between(-40, 40));
+    // 稍微增加速度范围
+    targetContainer.body.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-60, 60));
     targetContainer.body.setCollideWorldBounds(true);
     targetContainer.body.setBounce(1, 1);
     
@@ -227,7 +249,7 @@ function hitTarget(bullet, target) {
         scoreText.setText('Score: ' + score);
         displayNextWord(this);
     } else {
-        target.destroy(); // 销毁错误目标
+        target.destroy(); 
         loseLife(this);
     }
 }
@@ -244,22 +266,21 @@ function loseLife(scene) {
 function gameOver(scene) {
     isGameOver = true;
     
-    // 清理场景
     if (targets) targets.clear(true, true);
     if (wordText) wordText.destroy();
     
-    // 显示 Game Over
     gameOverText = scene.add.text(400, 300, 'GAME OVER\nFinal Score: ' + score, {
         font: 'bold 64px Arial',
         fill: '#ff0000',
+        stroke: '#ffffff',
+        strokeThickness: 6,
         align: 'center'
     }).setOrigin(0.5);
 
-    // 显示重新开始按钮
-    restartButton = scene.add.text(400, 450, 'Click to Restart', {
+    restartButton = scene.add.text(400, 480, 'Click to Restart', {
         font: '32px Arial',
         fill: '#ffffff',
-        backgroundColor: '#333333',
+        backgroundColor: '#006600',
         padding: { x: 20, y: 10 }
     }).setOrigin(0.5).setInteractive();
 
@@ -269,17 +290,15 @@ function gameOver(scene) {
 }
 
 function restartGame(scene) {
-    // 销毁旧对象
     if (gameOverText) gameOverText.destroy();
     if (restartButton) restartButton.destroy();
     
-    // 重置变量
     score = 0;
     lives = 3;
     scoreText.setText('Score: 0');
     livesText.setText('Lives: 3');
     isGameOver = false;
 
-    // 重新开始出题
+    // 重新获取单词，也许能刷新运气
     fetchWords(scene);
 }
