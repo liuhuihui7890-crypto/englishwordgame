@@ -35,7 +35,9 @@ let isGameOver = false;
 let words = []; 
 
 function preload () {
-    // 预加载
+    // 加载炮台图片
+    // 请确保您已将图片上传到 assets/cannon.png
+    this.load.image('player', 'assets/cannon.png');
 }
 
 function create () {
@@ -60,31 +62,20 @@ function create () {
     graphics.fillCircle(5, 5, 5);
     graphics.generateTexture('bullet', 10, 10);
 
-    // 3. 生成纹理 - 玩家炮台 (更像大炮的样子)
-    let playerGraphics = this.make.graphics({ x: 0, y: 0, add: false });
-    
-    // 炮管 (深灰色长方形)
-    playerGraphics.fillStyle(0x444444, 1);
-    playerGraphics.fillRect(-10, -40, 20, 60); // 中心点 (0,0) 对应的矩形
-    
-    // 炮管装饰 (亮色条纹)
-    playerGraphics.fillStyle(0x00ccff, 1);
-    playerGraphics.fillRect(-6, -35, 12, 10);
-    playerGraphics.fillRect(-6, -15, 12, 5);
-
-    // 底座 (圆形)
-    playerGraphics.fillStyle(0x666666, 1);
-    playerGraphics.fillCircle(0, 10, 25);
-    
-    // 核心发光点
-    playerGraphics.fillStyle(0x00ffff, 1);
-    playerGraphics.fillCircle(0, 10, 8);
-
-    playerGraphics.generateTexture('player', 60, 80); // 生成纹理，宽高要足够包容绘制的图形
+    // 3. (已移除) 生成纹理 - 玩家炮台 
+    // 我们现在使用 preload 中加载的 'player' 图片
     
     // 4. 创建玩家对象
     player = this.physics.add.sprite(400, 550, 'player');
-    player.setOrigin(0.5, 0.6); // 调整旋转中心，使其看起来像绕着底座转
+    
+    // 自动调整图片大小
+    // 设定高度为 80 像素，宽度等比缩放，这样无论原图多大都能适配
+    player.displayHeight = 80;
+    player.scaleX = player.scaleY;
+
+    // 设置旋转中心
+    // 0.5, 0.7 意味着旋转轴心在图片水平居中，垂直靠下的位置（适合炮台旋转）
+    player.setOrigin(0.5, 0.7); 
     player.setCollideWorldBounds(true);
 
     bullets = this.physics.add.group({
@@ -139,22 +130,18 @@ function update (time, delta) {
     if (isGameOver || !player) return;
 
     let pointer = this.input.activePointer;
-    // 计算角度，注意图片素材默认是朝上的，所以不需要额外的 Math.PI / 2 修正，除非素材方向不对
-    // 我们的 Graphics 绘制时炮口朝上 (-Y)，Phaser 0度是朝右 (+X)
-    // 所以还是需要 +90度 (PI/2) 来修正
+    // 计算角度
+    // 假设您的图片是炮口朝上的（竖直长方形），如果是朝右的，请把 + Math.PI / 2 去掉
     let angle = Phaser.Math.Angle.Between(player.x, player.y, pointer.x, pointer.y);
     player.rotation = angle + Math.PI / 2;
 
     bullets.children.each(function(b) {
-        // 清理逻辑修改：只在飞出上下边界时销毁
-        // 左右边界会让它反弹，所以不销毁
         if (b.active) {
             if (b.y < -50 || b.y > 650) {
                 b.setActive(false);
                 b.setVisible(false);
                 b.body.stop();
             }
-            // 不需要检测 x，因为有墙壁反弹
         }
     }.bind(this));
 }
@@ -231,9 +218,7 @@ function createTarget(scene, x, y, text, isCorrect) {
     
     scene.physics.world.enable(targetContainer);
     
-    // 设置物理身体为圆形，碰撞更自然
     targetContainer.body.setCircle(radius);
-
     targetContainer.setData('isCorrect', isCorrect);
     targetContainer.body.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-60, 60));
     targetContainer.body.setCollideWorldBounds(true);
@@ -245,11 +230,10 @@ function createTarget(scene, x, y, text, isCorrect) {
 function fireBullet(scene, pointer) {
     if (!player) return;
 
-    // 计算炮口位置（简单的三角函数，基于炮台旋转）
-    // player.rotation 是当前炮台的角度
-    // 炮管长度大概 40，所以我们在炮口处生成子弹
+    // 假设炮管长度大概是显示高度的一半多一点
+    let cannonLength = player.displayHeight * 0.6;
     let vec = new Phaser.Math.Vector2();
-    vec.setToPolar(player.rotation - Math.PI/2, 50); // -90度修正，长度50
+    vec.setToPolar(player.rotation - Math.PI/2, cannonLength);
 
     let bullet = bullets.get(player.x + vec.x, player.y + vec.y);
     
@@ -257,11 +241,9 @@ function fireBullet(scene, pointer) {
         bullet.setActive(true);
         bullet.setVisible(true);
         
-        // 关键改动：开启世界边界碰撞和反弹
         bullet.body.setCollideWorldBounds(true);
         bullet.body.setBounce(1, 1); 
         
-        // 发射方向
         let angle = Phaser.Math.Angle.Between(player.x, player.y, pointer.x, pointer.y);
         scene.physics.velocityFromRotation(angle, 700, bullet.body.velocity);
     }
