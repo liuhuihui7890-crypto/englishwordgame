@@ -54,19 +54,37 @@ function create () {
         stars.fillCircle(x, y, r);
     }
 
-    // 2. 生成纹理
+    // 2. 生成纹理 - 子弹 (发光小球)
     let graphics = this.make.graphics({ x: 0, y: 0, add: false });
     graphics.fillStyle(0x00ffff, 1);
     graphics.fillCircle(5, 5, 5);
     graphics.generateTexture('bullet', 10, 10);
 
+    // 3. 生成纹理 - 玩家炮台 (更像大炮的样子)
     let playerGraphics = this.make.graphics({ x: 0, y: 0, add: false });
-    playerGraphics.fillStyle(0x00ccff, 1);
-    playerGraphics.fillTriangle(0, 40, 20, 0, 40, 40);
-    playerGraphics.generateTexture('player', 40, 40);
     
-    // 3. 创建游戏对象
+    // 炮管 (深灰色长方形)
+    playerGraphics.fillStyle(0x444444, 1);
+    playerGraphics.fillRect(-10, -40, 20, 60); // 中心点 (0,0) 对应的矩形
+    
+    // 炮管装饰 (亮色条纹)
+    playerGraphics.fillStyle(0x00ccff, 1);
+    playerGraphics.fillRect(-6, -35, 12, 10);
+    playerGraphics.fillRect(-6, -15, 12, 5);
+
+    // 底座 (圆形)
+    playerGraphics.fillStyle(0x666666, 1);
+    playerGraphics.fillCircle(0, 10, 25);
+    
+    // 核心发光点
+    playerGraphics.fillStyle(0x00ffff, 1);
+    playerGraphics.fillCircle(0, 10, 8);
+
+    playerGraphics.generateTexture('player', 60, 80); // 生成纹理，宽高要足够包容绘制的图形
+    
+    // 4. 创建玩家对象
     player = this.physics.add.sprite(400, 550, 'player');
+    player.setOrigin(0.5, 0.6); // 调整旋转中心，使其看起来像绕着底座转
     player.setCollideWorldBounds(true);
 
     bullets = this.physics.add.group({
@@ -76,14 +94,14 @@ function create () {
 
     targets = this.physics.add.group();
 
-    // 4. UI 显示
+    // 5. UI 显示
     scoreText = this.add.text(16, 16, 'Score: 0', { font: '32px Arial', fill: '#00ff00' });
     livesText = this.add.text(650, 16, 'Lives: 3', { font: '32px Arial', fill: '#ff0000' });
 
-    // 5. 获取数据
+    // 6. 获取数据
     fetchWords(this);
 
-    // 6. 输入与碰撞
+    // 7. 输入与碰撞
     this.input.on('pointerdown', function(pointer) {
         if (!isGameOver) {
             fireBullet(this, pointer);
@@ -102,7 +120,6 @@ function fetchWords(scene) {
             return response.json();
         })
         .then(data => {
-            console.log("Words received:", data); // 调试日志
             if (data && data.length > 0) {
                 words = data;
                 displayNextWord(scene);
@@ -113,7 +130,6 @@ function fetchWords(scene) {
         })
         .catch(err => {
             console.error("API Error:", err);
-            // 这里也可以用一些硬编码的词作为最后的防线
             words = [{en: 'Error', cn: '网络错误'}, {en: 'Reload', cn: '刷新页面'}];
             displayNextWord(scene);
         });
@@ -123,13 +139,22 @@ function update (time, delta) {
     if (isGameOver || !player) return;
 
     let pointer = this.input.activePointer;
+    // 计算角度，注意图片素材默认是朝上的，所以不需要额外的 Math.PI / 2 修正，除非素材方向不对
+    // 我们的 Graphics 绘制时炮口朝上 (-Y)，Phaser 0度是朝右 (+X)
+    // 所以还是需要 +90度 (PI/2) 来修正
     let angle = Phaser.Math.Angle.Between(player.x, player.y, pointer.x, pointer.y);
     player.rotation = angle + Math.PI / 2;
 
     bullets.children.each(function(b) {
-        if (b.active && (b.y < -50 || b.y > 650 || b.x < -50 || b.x > 850)) {
-            b.setActive(false);
-            b.setVisible(false);
+        // 清理逻辑修改：只在飞出上下边界时销毁
+        // 左右边界会让它反弹，所以不销毁
+        if (b.active) {
+            if (b.y < -50 || b.y > 650) {
+                b.setActive(false);
+                b.setVisible(false);
+                b.body.stop();
+            }
+            // 不需要检测 x，因为有墙壁反弹
         }
     }.bind(this));
 }
@@ -143,7 +168,6 @@ function displayNextWord(scene) {
         wordText.destroy();
     }
 
-    // 在底部显示英文单词
     wordText = scene.add.text(400, 550, currentWord.en, { 
         font: 'bold 40px Arial', 
         fill: '#ffffff',
@@ -165,18 +189,14 @@ function createTargets(scene) {
     const minY = 50;
     const maxY = 350;
 
-    // 1. 添加正确答案
     let correctTarget = createTarget(scene, Phaser.Math.Between(minX, maxX), Phaser.Math.Between(minY, maxY), currentWord.cn, true);
     targets.add(correctTarget);
 
-    // 2. 添加干扰项 (增加到 7 个，总共 8 个)
     let incorrectWords = words.filter(word => word.en !== currentWord.en);
-    // 如果单词总数不够，就重复使用干扰项
     let targetCount = 7;
     
     for (let i = 0; i < targetCount; i++) { 
         if (incorrectWords.length === 0) {
-            // 如果干扰词用完了，重新填充（除了正确答案）
             incorrectWords = words.filter(word => word.en !== currentWord.en);
         }
         
@@ -192,7 +212,6 @@ function createTargets(scene) {
 function createTarget(scene, x, y, text, isCorrect) {
     let targetContainer = scene.add.container(x, y);
     
-    // 确保字体支持中文，且颜色对比度高
     let targetText = scene.add.text(0, 0, text, { 
         font: 'bold 20px "Microsoft YaHei", Arial, sans-serif', 
         fill: '#ffffff',
@@ -200,13 +219,11 @@ function createTarget(scene, x, y, text, isCorrect) {
         strokeThickness: 2
     }).setOrigin(0.5);
     
-    // 气泡大小
     let radius = Math.max(targetText.width, targetText.height) / 2 + 15;
     
     let visualBg = scene.add.graphics();
-    // 随机颜色
     let color = Phaser.Utils.Array.GetRandom([0xff5555, 0x55ff55, 0x5555ff, 0xffff55, 0xff55ff, 0xffaa00, 0x00aaff]);
-    visualBg.fillStyle(color, 0.8); // 增加不透明度
+    visualBg.fillStyle(color, 0.8);
     visualBg.fillCircle(0, 0, radius);
     
     targetContainer.add([visualBg, targetText]);
@@ -214,8 +231,10 @@ function createTarget(scene, x, y, text, isCorrect) {
     
     scene.physics.world.enable(targetContainer);
     
+    // 设置物理身体为圆形，碰撞更自然
+    targetContainer.body.setCircle(radius);
+
     targetContainer.setData('isCorrect', isCorrect);
-    // 稍微增加速度范围
     targetContainer.body.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-60, 60));
     targetContainer.body.setCollideWorldBounds(true);
     targetContainer.body.setBounce(1, 1);
@@ -226,12 +245,23 @@ function createTarget(scene, x, y, text, isCorrect) {
 function fireBullet(scene, pointer) {
     if (!player) return;
 
-    let bullet = bullets.get(player.x, player.y);
+    // 计算炮口位置（简单的三角函数，基于炮台旋转）
+    // player.rotation 是当前炮台的角度
+    // 炮管长度大概 40，所以我们在炮口处生成子弹
+    let vec = new Phaser.Math.Vector2();
+    vec.setToPolar(player.rotation - Math.PI/2, 50); // -90度修正，长度50
+
+    let bullet = bullets.get(player.x + vec.x, player.y + vec.y);
     
     if (bullet) {
         bullet.setActive(true);
         bullet.setVisible(true);
         
+        // 关键改动：开启世界边界碰撞和反弹
+        bullet.body.setCollideWorldBounds(true);
+        bullet.body.setBounce(1, 1); 
+        
+        // 发射方向
         let angle = Phaser.Math.Angle.Between(player.x, player.y, pointer.x, pointer.y);
         scene.physics.velocityFromRotation(angle, 700, bullet.body.velocity);
     }
@@ -299,6 +329,5 @@ function restartGame(scene) {
     livesText.setText('Lives: 3');
     isGameOver = false;
 
-    // 重新获取单词，也许能刷新运气
     fetchWords(scene);
 }
