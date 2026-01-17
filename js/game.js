@@ -36,7 +36,6 @@ let words = [];
 
 function preload () {
     // 加载炮台图片
-    // 请确保您已将图片上传到 assets/cannon.png
     this.load.image('player', 'assets/cannon.png');
 }
 
@@ -62,19 +61,14 @@ function create () {
     graphics.fillCircle(5, 5, 5);
     graphics.generateTexture('bullet', 10, 10);
 
-    // 3. (已移除) 生成纹理 - 玩家炮台 
-    // 我们现在使用 preload 中加载的 'player' 图片
-    
-    // 4. 创建玩家对象
+    // 3. 创建玩家对象
     player = this.physics.add.sprite(400, 550, 'player');
     
     // 自动调整图片大小
-    // 设定高度为 80 像素，宽度等比缩放，这样无论原图多大都能适配
     player.displayHeight = 80;
     player.scaleX = player.scaleY;
 
     // 设置旋转中心
-    // 0.5, 0.7 意味着旋转轴心在图片水平居中，垂直靠下的位置（适合炮台旋转）
     player.setOrigin(0.5, 0.7); 
     player.setCollideWorldBounds(true);
 
@@ -85,14 +79,14 @@ function create () {
 
     targets = this.physics.add.group();
 
-    // 5. UI 显示
+    // 4. UI 显示
     scoreText = this.add.text(16, 16, 'Score: 0', { font: '32px Arial', fill: '#00ff00' });
     livesText = this.add.text(650, 16, 'Lives: 3', { font: '32px Arial', fill: '#ff0000' });
 
-    // 6. 获取数据
+    // 5. 获取数据
     fetchWords(this);
 
-    // 7. 输入与碰撞
+    // 6. 输入与碰撞
     this.input.on('pointerdown', function(pointer) {
         if (!isGameOver) {
             fireBullet(this, pointer);
@@ -131,7 +125,6 @@ function update (time, delta) {
 
     let pointer = this.input.activePointer;
     // 计算角度
-    // 假设您的图片是炮口朝上的（竖直长方形），如果是朝右的，请把 + Math.PI / 2 去掉
     let angle = Phaser.Math.Angle.Between(player.x, player.y, pointer.x, pointer.y);
     player.rotation = angle + Math.PI / 2;
 
@@ -199,6 +192,7 @@ function createTargets(scene) {
 function createTarget(scene, x, y, text, isCorrect) {
     let targetContainer = scene.add.container(x, y);
     
+    // 初始文字设置
     let targetText = scene.add.text(0, 0, text, { 
         font: 'bold 20px "Microsoft YaHei", Arial, sans-serif', 
         fill: '#ffffff',
@@ -206,7 +200,18 @@ function createTarget(scene, x, y, text, isCorrect) {
         strokeThickness: 2
     }).setOrigin(0.5);
     
-    let radius = Math.max(targetText.width, targetText.height) / 2 + 15;
+    // 计算理想半径
+    let rawRadius = Math.max(targetText.width, targetText.height) / 2 + 15;
+    
+    // 限制半径范围 (30 ~ 120)
+    let radius = Phaser.Math.Clamp(rawRadius, 30, 120);
+    
+    // 如果文字太长导致半径被限制住了，需要缩小文字
+    if (rawRadius > 120) {
+        // 计算缩放比例：最大允许直径 / 实际文字对角线大概长度
+        let scale = (120 * 2 - 20) / Math.max(targetText.width, targetText.height);
+        targetText.setScale(scale);
+    }
     
     let visualBg = scene.add.graphics();
     let color = Phaser.Utils.Array.GetRandom([0xff5555, 0x55ff55, 0x5555ff, 0xffff55, 0xff55ff, 0xffaa00, 0x00aaff]);
