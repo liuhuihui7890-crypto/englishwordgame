@@ -36,6 +36,7 @@ let words = [];
 
 function preload () {
     // 加载炮台图片
+    // 请确保您已将图片上传到 assets/cannon.png
     this.load.image('player', 'assets/cannon.png');
 }
 
@@ -45,43 +46,15 @@ function create () {
     lives = 3;
     isGameOver = false;
 
-    // 1. 创建动态星空背景 (使用 Sprite + Tween 实现闪烁)
-    
-    // 1.1 先生成一个星星的纹理
-    let starGraphics = this.make.graphics({ x: 0, y: 0, add: false });
-    starGraphics.fillStyle(0xffffff, 1);
-    starGraphics.fillCircle(2, 2, 2); // 4x4大小的圆
-    starGraphics.generateTexture('star', 4, 4);
-
-    // 1.2 随机生成星星并添加闪烁动画
-    for(let i=0; i<150; i++) {
-        let x = Phaser.Math.Between(0, 800);
-        let y = Phaser.Math.Between(0, 600);
-        let star = this.add.image(x, y, 'star');
-        
-        // 随机大小
-        star.setScale(Phaser.Math.FloatBetween(0.5, 1.5));
-        
-        // 随机初始透明度
-        star.setAlpha(Phaser.Math.FloatBetween(0.3, 1));
-
-        // 添加闪烁动画 (Tween)
-        this.tweens.add({
-            targets: star,
-            alpha: { from: 0.2, to: 1 }, // 透明度在 0.2 到 1 之间变化
-            duration: Phaser.Math.Between(1000, 3000), // 随机持续时间 1-3秒
-            yoyo: true, // 来回变化
-            repeat: -1, // 无限循环
-            ease: 'Sine.easeInOut', // 平滑缓动
-            delay: Phaser.Math.Between(0, 2000) // 随机延迟开始
-        });
-    }
+    // 1. 创建动态星空背景
+    createStars(this);
 
     // 2. 生成纹理 - 子弹 (发光小球)
-    let graphics = this.make.graphics({ x: 0, y: 0, add: false });
-    graphics.fillStyle(0x00ffff, 1);
-    graphics.fillCircle(5, 5, 5);
-    graphics.generateTexture('bullet', 10, 10);
+    let bulletGraphics = this.make.graphics({ x: 0, y: 0, add: false });
+    bulletGraphics.fillStyle(0x00ffff, 1);
+    bulletGraphics.fillCircle(5, 5, 5);
+    bulletGraphics.generateTexture('bullet', 10, 10);
+    bulletGraphics.destroy(); // 生成纹理后销毁 Graphics 对象，释放资源
 
     // 3. 创建玩家对象
     player = this.physics.add.sprite(400, 550, 'player');
@@ -118,6 +91,40 @@ function create () {
     this.physics.add.overlap(bullets, targets, hitTarget, null, this);
 }
 
+// 单独提取星星创建逻辑，保持 create 函数整洁
+function createStars(scene) {
+    // 1.1 先生成一个星星的纹理
+    let starGraphics = scene.make.graphics({ x: 0, y: 0, add: false });
+    starGraphics.fillStyle(0xffffff, 1);
+    starGraphics.fillCircle(2, 2, 2); 
+    starGraphics.generateTexture('star', 4, 4);
+    starGraphics.destroy();
+
+    // 1.2 随机生成星星并添加闪烁动画
+    for(let i=0; i<150; i++) {
+        let x = Phaser.Math.Between(0, 800);
+        let y = Phaser.Math.Between(0, 600);
+        let star = scene.add.image(x, y, 'star');
+        
+        // 随机大小
+        star.setScale(Phaser.Math.FloatBetween(0.5, 1.5));
+        
+        // 随机初始透明度
+        star.setAlpha(Phaser.Math.FloatBetween(0.3, 1));
+
+        // 添加闪烁动画
+        scene.tweens.add({
+            targets: star,
+            alpha: { from: 0.2, to: 1 },
+            duration: Phaser.Math.Between(1000, 3000),
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+            delay: Phaser.Math.Between(0, 2000)
+        });
+    }
+}
+
 function fetchWords(scene) {
     fetch('/api/words')
         .then(response => {
@@ -152,6 +159,7 @@ function update (time, delta) {
 
     bullets.children.each(function(b) {
         if (b.active) {
+            // 子弹只有飞出上下边界才销毁
             if (b.y < -50 || b.y > 650) {
                 b.setActive(false);
                 b.setVisible(false);
@@ -214,7 +222,6 @@ function createTargets(scene) {
 function createTarget(scene, x, y, text, isCorrect) {
     let targetContainer = scene.add.container(x, y);
     
-    // 初始文字设置
     let targetText = scene.add.text(0, 0, text, { 
         font: 'bold 20px "Microsoft YaHei", Arial, sans-serif', 
         fill: '#ffffff',
@@ -225,12 +232,11 @@ function createTarget(scene, x, y, text, isCorrect) {
     // 计算理想半径
     let rawRadius = Math.max(targetText.width, targetText.height) / 2 + 15;
     
-    // 限制半径范围 (30 ~ 120)
+    // 限制半径范围 (30 ~ 120) - 确保保留了这个逻辑
     let radius = Phaser.Math.Clamp(rawRadius, 30, 120);
     
-    // 如果文字太长导致半径被限制住了，需要缩小文字
+    // 自动缩放文字 - 确保保留了这个逻辑
     if (rawRadius > 120) {
-        // 计算缩放比例：最大允许直径 / 实际文字对角线大概长度
         let scale = (120 * 2 - 20) / Math.max(targetText.width, targetText.height);
         targetText.setScale(scale);
     }
@@ -257,7 +263,6 @@ function createTarget(scene, x, y, text, isCorrect) {
 function fireBullet(scene, pointer) {
     if (!player) return;
 
-    // 假设炮管长度大概是显示高度的一半多一点
     let cannonLength = player.displayHeight * 0.6;
     let vec = new Phaser.Math.Vector2();
     vec.setToPolar(player.rotation - Math.PI/2, cannonLength);
