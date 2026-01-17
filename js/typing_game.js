@@ -177,8 +177,8 @@ function spawnEnemy() {
     
     enemyContainer.setData('word', wordData.en.toLowerCase());
     
-    // 减慢速度：从 80-150 降低到 25-50 (大约三分之一)
-    enemyContainer.setData('speed', Phaser.Math.Between(25, 50));
+    // 减慢速度：从 25-50 降低到 12-25 (再次减半)
+    enemyContainer.setData('speed', Phaser.Math.Between(12, 25));
     
     enemies.add(enemyContainer);
 }
