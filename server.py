@@ -53,7 +53,8 @@ def get_db_connection():
 
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    # 默认访问导航菜单
+    return send_from_directory('.', 'menu.html')
 
 @app.route('/api/words')
 def get_words():

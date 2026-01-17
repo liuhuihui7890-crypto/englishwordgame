@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>英语学习游戏中心</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { 
+            margin: 0; 
+            background: #2d2d2d; 
+            display: flex; 
+            flex-direction: column;
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            color: white;
+            font-family: 'Arial', sans-serif;
+        }
+        h1 { font-size: 48px; margin-bottom: 50px; text-shadow: 2px 2px 4px #000; }
+        .game-card {
+            display: inline-block;
+            width: 250px;
+            height: 150px;
+            margin: 20px;
+            background: #444;
+            border-radius: 15px;
+            text-align: center;
+            text-decoration: none;
+            color: white;
+            transition: transform 0.2s, background 0.2s;
+            border: 2px solid #555;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .game-card:hover {
+            transform: scale(1.05);
+            background: #555;
+            border-color: #00ffff;
+        }
+        .game-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+        .game-desc { font-size: 14px; color: #ccc; padding: 0 10px; }
+    </style>
+</head>
+<body>
+    <h1>英语学习游戏中心</h1>
+    
+    <div style="display: flex;">
+        <a href="shooter.html" class="game-card">
+            <div class="game-title">🎯 单词射击</div>
+            <div class="game-desc">看词义，选单词。<br>锻炼快速反应和词汇认知。</div>
+        </a>
+
+        <a href="typing.html" class="game-card">
+            <div class="game-title">⌨️ 拼写防御</div>
+            <div class="game-desc">敌人来袭，输入单词进行防御。<br>锻炼拼写速度和准确度。</div>
+        </a>
+    </div>
+</body>
+</html>
