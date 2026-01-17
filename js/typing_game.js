@@ -53,7 +53,8 @@ function create () {
     player.scaleX = player.scaleY;
     player.setOrigin(0.5, 0.7); 
 
-    enemies = this.physics.add.group();
+    // 使用普通组而不是物理组，我们手动控制移动
+    enemies = this.add.group();
     
     scoreText = this.add.text(16, 16, 'Score: 0', { font: '32px Arial', fill: '#00ff00' });
     livesText = this.add.text(650, 16, 'Lives: 5', { font: '32px Arial', fill: '#ff0000' });
@@ -138,7 +139,7 @@ function spawnEnemy() {
 
     let wordData = Phaser.Utils.Array.GetRandom(words);
     let x = Phaser.Math.Between(50, 750);
-    // 修改生成高度：从 -50 改为 -30，甚至可以让它直接生成在屏幕上边缘内一点点
+    // 确保生成在视野内
     let y = -30;
 
     let enemyContainer = this.add.container(x, y);
@@ -146,9 +147,8 @@ function spawnEnemy() {
     let text = this.add.text(0, 0, wordData.cn, {
         font: 'bold 20px "Microsoft YaHei", Arial', 
         fill: '#ffffff',
-        // 修改描边颜色：红色 -> 黑色，增强对比度
         stroke: '#000000', 
-        strokeThickness: 4 // 加粗描边
+        strokeThickness: 4 
     }).setOrigin(0.5);
 
     let radius = Math.max(text.width, text.height) / 2 + 10; 
@@ -161,12 +161,9 @@ function spawnEnemy() {
     enemyContainer.add([bg, text]);
     enemyContainer.setSize(radius*2, radius*2);
     
-    this.physics.world.enable(enemyContainer);
-    
+    // 不再依赖物理引擎的 velocity
     enemyContainer.setData('word', wordData.en.toLowerCase());
-    
-    // 修改速度：从 30-60 提升到 80-150
-    enemyContainer.body.setVelocityY(Phaser.Math.Between(80, 150));
+    enemyContainer.setData('speed', Phaser.Math.Between(80, 150)); // 存储速度
     
     enemies.add(enemyContainer);
 }
@@ -191,13 +188,19 @@ function update(time, delta) {
         if (inputField.value !== '') inputField.value = '';
     }
 
+    // 手动更新位置
     enemies.children.each(function(enemy) {
-        if (enemy.active && enemy.y > 580) {
-            enemy.destroy();
-            loseLife(this);
-            if (enemy === currentTarget) {
-                currentTarget = null;
-                inputField.value = ''; 
+        if (enemy.active) {
+            // 使用存储的速度移动 (pixel per second)
+            enemy.y += enemy.getData('speed') * (delta / 1000);
+
+            if (enemy.y > 580) {
+                enemy.destroy();
+                loseLife(this);
+                if (enemy === currentTarget) {
+                    currentTarget = null;
+                    inputField.value = ''; 
+                }
             }
         }
     }, this);
