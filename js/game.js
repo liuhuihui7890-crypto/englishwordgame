@@ -33,37 +33,28 @@ let score = 0;
 let lives = 3;
 let isGameOver = false;
 let words = []; 
+let currentMode = 'en_to_cn'; // 'en_to_cn' or 'cn_to_en'
 
 function preload () {
-    // 加载炮台图片
-    // 请确保您已将图片上传到 assets/cannon.png
     this.load.image('player', 'assets/cannon.png');
 }
 
 function create () {
-    // 0. 重置状态
     score = 0;
     lives = 3;
     isGameOver = false;
 
-    // 1. 创建动态星空背景
     createStars(this);
 
-    // 2. 生成纹理 - 子弹 (发光小球)
     let bulletGraphics = this.make.graphics({ x: 0, y: 0, add: false });
     bulletGraphics.fillStyle(0x00ffff, 1);
     bulletGraphics.fillCircle(5, 5, 5);
     bulletGraphics.generateTexture('bullet', 10, 10);
-    bulletGraphics.destroy(); // 生成纹理后销毁 Graphics 对象，释放资源
+    bulletGraphics.destroy();
 
-    // 3. 创建玩家对象
     player = this.physics.add.sprite(400, 550, 'player');
-    
-    // 自动调整图片大小
     player.displayHeight = 80;
     player.scaleX = player.scaleY;
-
-    // 设置旋转中心
     player.setOrigin(0.5, 0.7); 
     player.setCollideWorldBounds(true);
 
@@ -74,14 +65,11 @@ function create () {
 
     targets = this.physics.add.group();
 
-    // 4. UI 显示
     scoreText = this.add.text(16, 16, 'Score: 0', { font: '32px Arial', fill: '#00ff00' });
     livesText = this.add.text(650, 16, 'Lives: 3', { font: '32px Arial', fill: '#ff0000' });
 
-    // 5. 获取数据
     fetchWords(this);
 
-    // 6. 输入与碰撞
     this.input.on('pointerdown', function(pointer) {
         if (!isGameOver) {
             fireBullet(this, pointer);
@@ -91,28 +79,21 @@ function create () {
     this.physics.add.overlap(bullets, targets, hitTarget, null, this);
 }
 
-// 单独提取星星创建逻辑，保持 create 函数整洁
 function createStars(scene) {
-    // 1.1 先生成一个星星的纹理
     let starGraphics = scene.make.graphics({ x: 0, y: 0, add: false });
     starGraphics.fillStyle(0xffffff, 1);
     starGraphics.fillCircle(2, 2, 2); 
     starGraphics.generateTexture('star', 4, 4);
     starGraphics.destroy();
 
-    // 1.2 随机生成星星并添加闪烁动画
     for(let i=0; i<150; i++) {
         let x = Phaser.Math.Between(0, 800);
         let y = Phaser.Math.Between(0, 600);
         let star = scene.add.image(x, y, 'star');
         
-        // 随机大小
         star.setScale(Phaser.Math.FloatBetween(0.5, 1.5));
-        
-        // 随机初始透明度
         star.setAlpha(Phaser.Math.FloatBetween(0.3, 1));
 
-        // 添加闪烁动画
         scene.tweens.add({
             targets: star,
             alpha: { from: 0.2, to: 1 },
@@ -153,13 +134,11 @@ function update (time, delta) {
     if (isGameOver || !player) return;
 
     let pointer = this.input.activePointer;
-    // 计算角度
     let angle = Phaser.Math.Angle.Between(player.x, player.y, pointer.x, pointer.y);
     player.rotation = angle + Math.PI / 2;
 
     bullets.children.each(function(b) {
         if (b.active) {
-            // 子弹只有飞出上下边界才销毁
             if (b.y < -50 || b.y > 650) {
                 b.setActive(false);
                 b.setVisible(false);
@@ -173,12 +152,18 @@ function displayNextWord(scene) {
     if (words.length === 0) return;
 
     currentWord = Phaser.Utils.Array.GetRandom(words);
+    
+    // 随机决定模式：50% 概率英找中，50% 概率中找英
+    currentMode = (Math.random() < 0.5) ? 'en_to_cn' : 'cn_to_en';
 
     if (wordText) {
         wordText.destroy();
     }
 
-    wordText = scene.add.text(400, 550, currentWord.en, { 
+    // 根据模式决定底部显示的文字
+    let displayText = (currentMode === 'en_to_cn') ? currentWord.en : currentWord.cn;
+
+    wordText = scene.add.text(400, 550, displayText, { 
         font: 'bold 40px Arial', 
         fill: '#ffffff',
         stroke: '#000000',
@@ -199,7 +184,10 @@ function createTargets(scene) {
     const minY = 50;
     const maxY = 350;
 
-    let correctTarget = createTarget(scene, Phaser.Math.Between(minX, maxX), Phaser.Math.Between(minY, maxY), currentWord.cn, true);
+    // 根据模式决定正确答案的显示文本
+    let correctText = (currentMode === 'en_to_cn') ? currentWord.cn : currentWord.en;
+    
+    let correctTarget = createTarget(scene, Phaser.Math.Between(minX, maxX), Phaser.Math.Between(minY, maxY), correctText, true);
     targets.add(correctTarget);
 
     let incorrectWords = words.filter(word => word.en !== currentWord.en);
@@ -214,7 +202,10 @@ function createTargets(scene) {
         let randomWord = incorrectWords[randomIndex];
         incorrectWords.splice(randomIndex, 1);
 
-        let incorrectTarget = createTarget(scene, Phaser.Math.Between(minX, maxX), Phaser.Math.Between(minY, maxY), randomWord.cn, false);
+        // 根据模式决定错误干扰项的显示文本
+        let incorrectText = (currentMode === 'en_to_cn') ? randomWord.cn : randomWord.en;
+
+        let incorrectTarget = createTarget(scene, Phaser.Math.Between(minX, maxX), Phaser.Math.Between(minY, maxY), incorrectText, false);
         targets.add(incorrectTarget);
     }
 }
@@ -229,13 +220,9 @@ function createTarget(scene, x, y, text, isCorrect) {
         strokeThickness: 2
     }).setOrigin(0.5);
     
-    // 计算理想半径
     let rawRadius = Math.max(targetText.width, targetText.height) / 2 + 15;
-    
-    // 限制半径范围 (30 ~ 120) - 确保保留了这个逻辑
     let radius = Phaser.Math.Clamp(rawRadius, 30, 120);
     
-    // 自动缩放文字 - 确保保留了这个逻辑
     if (rawRadius > 120) {
         let scale = (120 * 2 - 20) / Math.max(targetText.width, targetText.height);
         targetText.setScale(scale);
