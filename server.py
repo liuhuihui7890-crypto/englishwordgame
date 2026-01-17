@@ -1,5 +1,6 @@
 import os
 import random
+import sys
 from flask import Flask, jsonify, send_from_directory
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -40,9 +41,12 @@ FALLBACK_WORDS = [
 def get_db_connection():
     try:
         conn = psycopg2.connect(DATABASE_URL)
+        # 连接成功日志
+        print("[INFO] Database connected successfully.", file=sys.stderr)
         return conn
     except Exception as e:
-        print(f"Warning: Database connection failed: {e}")
+        # 连接失败日志 (Requirement 1)
+        print(f"[ERROR] Database connection failed. Details: {e}", file=sys.stderr)
         return None
 
 @app.route('/')
@@ -55,32 +59,46 @@ def get_words():
     
     # 如果数据库连接失败，使用备用词库
     if not conn:
-        print("Using fallback word list.")
-        # 随机打乱并返回 20 个
+        print("[WARN] Using fallback word list due to connection failure.", file=sys.stderr)
         return jsonify(random.sample(FALLBACK_WORDS, min(len(FALLBACK_WORDS), 20)))
     
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        # Fetch 30 random words
-        cur.execute('SELECT word, translation FROM public.vocabularies ORDER BY RANDOM() LIMIT 30')
+        
+        # Requirement 2: 过滤掉 NULL 或空字符串
+        query = """
+            SELECT word, translation 
+            FROM public.vocabularies 
+            WHERE word IS NOT NULL 
+              AND translation IS NOT NULL 
+              AND trim(word) != '' 
+              AND trim(translation) != ''
+            ORDER BY RANDOM() LIMIT 30
+        """
+        cur.execute(query)
         rows = cur.fetchall()
         
         if not rows:
-            print("Database empty, using fallback list.")
+            print("[WARN] Database query returned 0 rows (after filtering). Using fallback list.", file=sys.stderr)
+            cur.close()
+            conn.close()
             return jsonify(random.sample(FALLBACK_WORDS, min(len(FALLBACK_WORDS), 20)))
 
         # Transform to match our frontend expected format
         words = [{'en': row['word'], 'cn': row['translation']} for row in rows]
+        print(f"[INFO] Successfully fetched {len(words)} words from database.", file=sys.stderr)
         
         cur.close()
         conn.close()
         return jsonify(words)
     except Exception as e:
-        print(f"Error executing query: {e}")
+        print(f"[ERROR] Error executing query: {e}", file=sys.stderr)
+        if conn:
+            conn.close()
         # 出错时也返回备用词库
         return jsonify(random.sample(FALLBACK_WORDS, min(len(FALLBACK_WORDS), 20)))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
-    # debug=True 可以在代码修改时自动重启，方便调试
+    # debug=True 可以在代码修改时自动重启
     app.run(host='0.0.0.0', port=port, debug=True)
