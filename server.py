@@ -8,7 +8,9 @@ from psycopg2.extras import RealDictCursor
 app = Flask(__name__, static_folder='.', static_url_path='')
 
 # Database connection URL
-DATABASE_URL = "postgresql://postgres:postgres123@localhost:5432/englishlearning?schema=public"
+# 修改说明：Python 的 psycopg2 库不支持在连接串中直接使用 ?schema=public 这种写法 (这是 Prisma/Node 常用的写法)
+# 由于默认 schema 通常就是 public，且我们在 SQL 中明确指定了 public.vocabularies，直接去掉参数即可。
+DATABASE_URL = "postgresql://postgres:postgres123@localhost:5432/englishlearning"
 
 # 内置备用词库 (当数据库连接失败时使用)
 FALLBACK_WORDS = [
