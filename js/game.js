@@ -45,14 +45,36 @@ function create () {
     lives = 3;
     isGameOver = false;
 
-    // 1. 创建动态星空背景
-    let stars = this.add.graphics();
-    stars.fillStyle(0xffffff, 1);
+    // 1. 创建动态星空背景 (使用 Sprite + Tween 实现闪烁)
+    
+    // 1.1 先生成一个星星的纹理
+    let starGraphics = this.make.graphics({ x: 0, y: 0, add: false });
+    starGraphics.fillStyle(0xffffff, 1);
+    starGraphics.fillCircle(2, 2, 2); // 4x4大小的圆
+    starGraphics.generateTexture('star', 4, 4);
+
+    // 1.2 随机生成星星并添加闪烁动画
     for(let i=0; i<150; i++) {
         let x = Phaser.Math.Between(0, 800);
         let y = Phaser.Math.Between(0, 600);
-        let r = Phaser.Math.FloatBetween(0.5, 2.5);
-        stars.fillCircle(x, y, r);
+        let star = this.add.image(x, y, 'star');
+        
+        // 随机大小
+        star.setScale(Phaser.Math.FloatBetween(0.5, 1.5));
+        
+        // 随机初始透明度
+        star.setAlpha(Phaser.Math.FloatBetween(0.3, 1));
+
+        // 添加闪烁动画 (Tween)
+        this.tweens.add({
+            targets: star,
+            alpha: { from: 0.2, to: 1 }, // 透明度在 0.2 到 1 之间变化
+            duration: Phaser.Math.Between(1000, 3000), // 随机持续时间 1-3秒
+            yoyo: true, // 来回变化
+            repeat: -1, // 无限循环
+            ease: 'Sine.easeInOut', // 平滑缓动
+            delay: Phaser.Math.Between(0, 2000) // 随机延迟开始
+        });
     }
 
     // 2. 生成纹理 - 子弹 (发光小球)
