@@ -1,7 +1,11 @@
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: 800,
+        height: 600
+    },
     backgroundColor: '#000022',
     parent: 'game-container',
     physics: {
@@ -49,7 +53,6 @@ function create () {
     createStars(this);
 
     player = this.physics.add.sprite(400, 550, 'player');
-    // 如果图片加载失败，给个保底颜色，防止看不见
     if (!player.texture || player.texture.key === '__MISSING') {
         let g = this.make.graphics({x:0, y:0, add:false});
         g.fillStyle(0x00ccff, 1);
@@ -63,7 +66,6 @@ function create () {
     player.setOrigin(0.5, 0.7); 
     player.setCollideWorldBounds(true);
 
-    // 使用普通组
     enemies = this.add.group();
     
     scoreText = this.add.text(16, 16, 'Score: 0', { font: '32px Arial', fill: '#00ff00' });
@@ -79,6 +81,16 @@ function create () {
         inputField.value = '';
         inputField.focus();
         inputField.addEventListener('input', handleInput.bind(this));
+        
+        // 移动端优化：点击游戏区域不失去焦点
+        this.input.on('pointerdown', () => {
+            if (!isGameOver) {
+                // 延迟一下，防止软键盘刚刚收起又弹起造成闪烁
+                setTimeout(() => {
+                    inputField.focus();
+                }, 100);
+            }
+        });
     }
 
     this.time.addEvent({
@@ -176,8 +188,6 @@ function spawnEnemy() {
     enemyContainer.setSize(radius*2, radius*2);
     
     enemyContainer.setData('word', wordData.en.toLowerCase());
-    
-    // 减慢速度：从 25-50 降低到 12-25 (再次减半)
     enemyContainer.setData('speed', Phaser.Math.Between(12, 25));
     
     enemies.add(enemyContainer);

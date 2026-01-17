@@ -1,7 +1,12 @@
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    // 使用 scale manager 进行适配
+    scale: {
+        mode: Phaser.Scale.FIT, // 自动缩放以适应屏幕
+        autoCenter: Phaser.Scale.CENTER_BOTH, // 居中显示
+        width: 800,
+        height: 600
+    },
     backgroundColor: '#000022',
     parent: document.body,
     physics: {
@@ -33,7 +38,7 @@ let score = 0;
 let lives = 3;
 let isGameOver = false;
 let words = []; 
-let currentMode = 'en_to_cn'; // 'en_to_cn' or 'cn_to_en'
+let currentMode = 'en_to_cn'; 
 
 function preload () {
     this.load.image('player', 'assets/cannon.png');
@@ -153,14 +158,12 @@ function displayNextWord(scene) {
 
     currentWord = Phaser.Utils.Array.GetRandom(words);
     
-    // 随机决定模式：50% 概率英找中，50% 概率中找英
     currentMode = (Math.random() < 0.5) ? 'en_to_cn' : 'cn_to_en';
 
     if (wordText) {
         wordText.destroy();
     }
 
-    // 根据模式决定底部显示的文字
     let displayText = (currentMode === 'en_to_cn') ? currentWord.en : currentWord.cn;
 
     wordText = scene.add.text(400, 550, displayText, { 
@@ -184,7 +187,6 @@ function createTargets(scene) {
     const minY = 50;
     const maxY = 350;
 
-    // 根据模式决定正确答案的显示文本
     let correctText = (currentMode === 'en_to_cn') ? currentWord.cn : currentWord.en;
     
     let correctTarget = createTarget(scene, Phaser.Math.Between(minX, maxX), Phaser.Math.Between(minY, maxY), correctText, true);
@@ -202,7 +204,6 @@ function createTargets(scene) {
         let randomWord = incorrectWords[randomIndex];
         incorrectWords.splice(randomIndex, 1);
 
-        // 根据模式决定错误干扰项的显示文本
         let incorrectText = (currentMode === 'en_to_cn') ? randomWord.cn : randomWord.en;
 
         let incorrectTarget = createTarget(scene, Phaser.Math.Between(minX, maxX), Phaser.Math.Between(minY, maxY), incorrectText, false);
