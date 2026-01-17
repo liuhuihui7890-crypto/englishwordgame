@@ -78,8 +78,6 @@ function create () {
     if (inputField) {
         inputField.value = '';
         inputField.focus();
-        // 移除旧的监听器防止重复 (虽然 create 只运行一次，但是个好习惯)
-        // 这里简单处理，因为每次刷新页面都是新的 JS环境
         inputField.addEventListener('input', handleInput.bind(this));
     }
 
@@ -177,10 +175,10 @@ function spawnEnemy() {
     enemyContainer.add([bg, text]);
     enemyContainer.setSize(radius*2, radius*2);
     
-    // 我们手动移动，不使用 physics.world.enable，减少副作用
-    // enemyContainer.setData...
     enemyContainer.setData('word', wordData.en.toLowerCase());
-    enemyContainer.setData('speed', Phaser.Math.Between(80, 150));
+    
+    // 减慢速度：从 80-150 降低到 25-50 (大约三分之一)
+    enemyContainer.setData('speed', Phaser.Math.Between(25, 50));
     
     enemies.add(enemyContainer);
 }
@@ -205,10 +203,8 @@ function update(time, delta) {
         if (inputField && inputField.value !== '') inputField.value = '';
     }
 
-    // 修复遍历方式: 使用 getChildren().forEach
     enemies.getChildren().forEach(function(enemy) {
         if (enemy.active) {
-            // 移动
             enemy.y += enemy.getData('speed') * (delta / 1000);
 
             if (enemy.y > 580) {
