@@ -21,7 +21,6 @@ const config = {
 let game = new Phaser.Game(config);
 let player;
 let enemies;
-let bullets;
 let scoreText;
 let livesText;
 let gameOverText;
@@ -41,6 +40,7 @@ function preload () {
 }
 
 function create () {
+    console.log("Game Create Started");
     score = 0;
     lives = 5;
     isGameOver = false;
@@ -49,11 +49,21 @@ function create () {
     createStars(this);
 
     player = this.physics.add.sprite(400, 550, 'player');
+    // 如果图片加载失败，给个保底颜色，防止看不见
+    if (!player.texture || player.texture.key === '__MISSING') {
+        let g = this.make.graphics({x:0, y:0, add:false});
+        g.fillStyle(0x00ccff, 1);
+        g.fillRect(0,0,40,80);
+        g.generateTexture('player_fallback', 40, 80);
+        player.setTexture('player_fallback');
+    }
+    
     player.displayHeight = 80;
     player.scaleX = player.scaleY;
     player.setOrigin(0.5, 0.7); 
+    player.setCollideWorldBounds(true);
 
-    // 使用普通组而不是物理组，我们手动控制移动
+    // 使用普通组
     enemies = this.add.group();
     
     scoreText = this.add.text(16, 16, 'Score: 0', { font: '32px Arial', fill: '#00ff00' });
@@ -65,26 +75,13 @@ function create () {
     fetchWords(this);
 
     inputField = document.getElementById('word-input');
-    inputField.value = '';
-    inputField.focus();
-    
-    inputField.addEventListener('input', (e) => {
-        if (isGameOver) return;
-        errorText.setText('');
-        
-        let val = e.target.value.trim().toLowerCase();
-        
-        if (currentTarget && currentTarget.active) {
-            let targetWord = currentTarget.getData('word');
-            
-            if (val === targetWord) {
-                successShot(this);
-            } 
-            else if (val.length >= targetWord.length && val !== targetWord) {
-                failShot(this);
-            }
-        }
-    });
+    if (inputField) {
+        inputField.value = '';
+        inputField.focus();
+        // 移除旧的监听器防止重复 (虽然 create 只运行一次，但是个好习惯)
+        // 这里简单处理，因为每次刷新页面都是新的 JS环境
+        inputField.addEventListener('input', handleInput.bind(this));
+    }
 
     this.time.addEvent({
         delay: 2000, 
@@ -92,6 +89,26 @@ function create () {
         callbackScope: this,
         loop: true
     });
+    
+    console.log("Game Create Finished");
+}
+
+function handleInput(e) {
+    if (isGameOver) return;
+    errorText.setText('');
+    
+    let val = e.target.value.trim().toLowerCase();
+    
+    if (currentTarget && currentTarget.active) {
+        let targetWord = currentTarget.getData('word');
+        
+        if (val === targetWord) {
+            successShot(this);
+        } 
+        else if (val.length >= targetWord.length && val !== targetWord) {
+            failShot(this);
+        }
+    }
 }
 
 function createStars(scene) {
@@ -139,7 +156,6 @@ function spawnEnemy() {
 
     let wordData = Phaser.Utils.Array.GetRandom(words);
     let x = Phaser.Math.Between(50, 750);
-    // 确保生成在视野内
     let y = -30;
 
     let enemyContainer = this.add.container(x, y);
@@ -161,9 +177,10 @@ function spawnEnemy() {
     enemyContainer.add([bg, text]);
     enemyContainer.setSize(radius*2, radius*2);
     
-    // 不再依赖物理引擎的 velocity
+    // 我们手动移动，不使用 physics.world.enable，减少副作用
+    // enemyContainer.setData...
     enemyContainer.setData('word', wordData.en.toLowerCase());
-    enemyContainer.setData('speed', Phaser.Math.Between(80, 150)); // 存储速度
+    enemyContainer.setData('speed', Phaser.Math.Between(80, 150));
     
     enemies.add(enemyContainer);
 }
@@ -185,13 +202,13 @@ function update(time, delta) {
         targetLine.strokePath();
     } else {
         targetLine.clear();
-        if (inputField.value !== '') inputField.value = '';
+        if (inputField && inputField.value !== '') inputField.value = '';
     }
 
-    // 手动更新位置
-    enemies.children.each(function(enemy) {
+    // 修复遍历方式: 使用 getChildren().forEach
+    enemies.getChildren().forEach(function(enemy) {
         if (enemy.active) {
-            // 使用存储的速度移动 (pixel per second)
+            // 移动
             enemy.y += enemy.getData('speed') * (delta / 1000);
 
             if (enemy.y > 580) {
@@ -199,7 +216,7 @@ function update(time, delta) {
                 loseLife(this);
                 if (enemy === currentTarget) {
                     currentTarget = null;
-                    inputField.value = ''; 
+                    if (inputField) inputField.value = ''; 
                 }
             }
         }
@@ -211,7 +228,7 @@ function findTarget() {
         let closestDist = Infinity;
         let closestEnemy = null;
 
-        enemies.children.each(function(enemy) {
+        enemies.getChildren().forEach(function(enemy) {
             if (enemy.active) {
                 let dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
                 if (dist < closestDist) {
@@ -223,8 +240,10 @@ function findTarget() {
 
         if (closestEnemy) {
             currentTarget = closestEnemy;
-            inputField.value = ''; 
-            inputField.placeholder = "Type: " + closestEnemy.getData('word').length + " letters"; 
+            if (inputField) {
+                inputField.value = ''; 
+                inputField.placeholder = "Type: " + closestEnemy.getData('word').length + " letters"; 
+            }
         }
     }
 }
@@ -238,7 +257,7 @@ function successShot(scene) {
     score += 10;
     scoreText.setText('Score: ' + score);
     
-    inputField.value = '';
+    if (inputField) inputField.value = '';
     findTarget();
 }
 
@@ -255,7 +274,7 @@ function failShot(scene) {
     });
 
     fireLaser(scene, currentTarget, 0xff0000); 
-    inputField.value = '';
+    if (inputField) inputField.value = '';
 }
 
 function fireLaser(scene, target, color) {
@@ -283,7 +302,7 @@ function gameOver(scene) {
     isGameOver = true;
     enemies.clear(true, true);
     targetLine.clear();
-    inputField.disabled = true;
+    if (inputField) inputField.disabled = true;
     
     gameOverText = scene.add.text(400, 300, 'GAME OVER\nFinal Score: ' + score, {
         font: 'bold 64px Arial',
