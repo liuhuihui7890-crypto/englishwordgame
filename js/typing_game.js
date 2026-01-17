@@ -27,7 +27,7 @@ let livesText;
 let gameOverText;
 let restartButton;
 let targetLine; 
-let errorText; // 错误提示文本
+let errorText; 
 
 let score = 0;
 let lives = 5;
@@ -55,7 +55,6 @@ function create () {
 
     enemies = this.physics.add.group();
     
-    // UI
     scoreText = this.add.text(16, 16, 'Score: 0', { font: '32px Arial', fill: '#00ff00' });
     livesText = this.add.text(650, 16, 'Lives: 5', { font: '32px Arial', fill: '#ff0000' });
     errorText = this.add.text(400, 500, '', { font: 'bold 32px Arial', fill: '#ff0000' }).setOrigin(0.5);
@@ -68,31 +67,18 @@ function create () {
     inputField.value = '';
     inputField.focus();
     
-    // 输入监听 (使用 'change' 或 'keyup' 回车可能更适合发射炮弹的感觉，但 'input' 实时性更强)
-    // 这里为了配合 "浪费炮弹" 的设定，我们监听 'keydown' 捕获回车键提交，或者保持实时检查
-    // 为了体验顺畅，我们继续用 input 实时检查，但如果拼写长度足够但错误，可以视为一次失败的射击
-    
-    // 方案：改为按回车确认发射，或者实时匹配。
-    // 为了实现"输错浪费炮弹"，我们改为：每次按下按键时，都进行判断，如果整个单词拼完了但是不对，或者为了简单，
-    // 我们保留实时匹配正确发射，但如果用户按了回车且不匹配，或者输入长度超过目标长度，就视为失误。
-    
-    // 简化方案：监听 input 事件，每次输入都检查。
     inputField.addEventListener('input', (e) => {
         if (isGameOver) return;
-        // 清除错误提示
         errorText.setText('');
         
         let val = e.target.value.trim().toLowerCase();
         
-        // 只有当有目标锁定时才检查
         if (currentTarget && currentTarget.active) {
             let targetWord = currentTarget.getData('word');
             
-            // 1. 完全匹配 -> 成功
             if (val === targetWord) {
                 successShot(this);
             } 
-            // 2. 输入长度已经超过目标单词，或者长度一样但内容不同 -> 错误 (浪费炮弹)
             else if (val.length >= targetWord.length && val !== targetWord) {
                 failShot(this);
             }
@@ -148,25 +134,24 @@ function fetchWords(scene) {
 function spawnEnemy() {
     if (isGameOver || words.length === 0) return;
 
-    // 限制最大数量为 5
     if (enemies.countActive(true) >= 5) return;
 
     let wordData = Phaser.Utils.Array.GetRandom(words);
     let x = Phaser.Math.Between(50, 750);
-    let y = -50;
+    // 修改生成高度：从 -50 改为 -30，甚至可以让它直接生成在屏幕上边缘内一点点
+    let y = -30;
 
     let enemyContainer = this.add.container(x, y);
     
     let text = this.add.text(0, 0, wordData.cn, {
-        font: 'bold 20px "Microsoft YaHei", Arial', // 字体稍小
+        font: 'bold 20px "Microsoft YaHei", Arial', 
         fill: '#ffffff',
-        stroke: '#ff0000',
-        strokeThickness: 3
+        // 修改描边颜色：红色 -> 黑色，增强对比度
+        stroke: '#000000', 
+        strokeThickness: 4 // 加粗描边
     }).setOrigin(0.5);
 
-    // 半径缩小：根据文字大小适配，但基数减小
     let radius = Math.max(text.width, text.height) / 2 + 10; 
-    // 强制限制最大半径，防止变得太大
     radius = Phaser.Math.Clamp(radius, 25, 60);
 
     let bg = this.add.graphics();
@@ -179,7 +164,9 @@ function spawnEnemy() {
     this.physics.world.enable(enemyContainer);
     
     enemyContainer.setData('word', wordData.en.toLowerCase());
-    enemyContainer.body.setVelocityY(Phaser.Math.Between(30, 60));
+    
+    // 修改速度：从 30-60 提升到 80-150
+    enemyContainer.body.setVelocityY(Phaser.Math.Between(80, 150));
     
     enemies.add(enemyContainer);
 }
@@ -194,14 +181,13 @@ function update(time, delta) {
         player.rotation = angle + Math.PI / 2;
         
         targetLine.clear();
-        targetLine.lineStyle(2, 0x00ff00, 0.3); // 线条变淡一点
+        targetLine.lineStyle(2, 0x00ff00, 0.3); 
         targetLine.beginPath();
         targetLine.moveTo(player.x, player.y);
         targetLine.lineTo(currentTarget.x, currentTarget.y);
         targetLine.strokePath();
     } else {
         targetLine.clear();
-        // 如果没有目标，清空输入框防止误判
         if (inputField.value !== '') inputField.value = '';
     }
 
@@ -234,14 +220,14 @@ function findTarget() {
 
         if (closestEnemy) {
             currentTarget = closestEnemy;
-            inputField.value = ''; // 切换目标时清空输入
-            inputField.placeholder = "Type: " + closestEnemy.getData('word').length + " letters"; // 提示长度
+            inputField.value = ''; 
+            inputField.placeholder = "Type: " + closestEnemy.getData('word').length + " letters"; 
         }
     }
 }
 
 function successShot(scene) {
-    fireLaser(scene, currentTarget, 0x00ffff); // 青色激光
+    fireLaser(scene, currentTarget, 0x00ffff); 
     
     currentTarget.destroy();
     currentTarget = null;
@@ -254,12 +240,10 @@ function successShot(scene) {
 }
 
 function failShot(scene) {
-    // 错误反馈
-    scene.cameras.main.shake(100, 0.01); // 屏幕震动
+    scene.cameras.main.shake(100, 0.01); 
     errorText.setText('WRONG!'); 
     errorText.alpha = 1;
     
-    // 淡出错误提示
     scene.tweens.add({
         targets: errorText,
         alpha: 0,
@@ -267,10 +251,7 @@ function failShot(scene) {
         delay: 200
     });
 
-    // 发射红色“哑弹”激光
     fireLaser(scene, currentTarget, 0xff0000); 
-    
-    // 清空输入框，让用户重新输入
     inputField.value = '';
 }
 
@@ -279,7 +260,6 @@ function fireLaser(scene, target, color) {
     laser.lineStyle(5, color, 1);
     laser.beginPath();
     laser.moveTo(player.x, player.y - 40);
-    // 如果是哑弹，激光可以打偏一点或者稍微短一点，这里为了视觉简单直接打过去但颜色不同
     laser.lineTo(target.x, target.y);
     laser.strokePath();
 
