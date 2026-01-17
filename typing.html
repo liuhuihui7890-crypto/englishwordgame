@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>英语拼写防御战</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { margin: 0; background: #2d2d2d; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; }
+        #input-container {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none; /* 让点击穿透，不影响游戏 */
+        }
+        #word-input {
+            font-size: 32px;
+            padding: 10px;
+            border: 2px solid #00ffff;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #ffffff;
+            border-radius: 5px;
+            text-align: center;
+            outline: none;
+            width: 300px;
+            pointer-events: auto;
+        }
+        .nav-link {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            text-decoration: none;
+            font-family: Arial, sans-serif;
+            background: #333;
+            padding: 5px 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="nav-link">← 返回射击练习</a>
+    <div id="game-container"></div>
+    <div id="input-container">
+        <input type="text" id="word-input" placeholder="Type here..." autocomplete="off" autofocus>
+    </div>
+    <script src="js/typing_game.js"></script>
+</body>
+</html>
